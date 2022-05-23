@@ -95,7 +95,9 @@ const mergeCss = async (srcFolder, dest) => {
 
 (async () => {
   const destFolderPath = path.resolve(__dirname, DEST_FOLDER_NAME);
-  await fsp.mkdir(destFolderPath).catch(() => {});
+
+  await fsp.rm(destFolderPath, { recursive: true, force: true });
+  await fsp.mkdir(destFolderPath);
 
   const templatePath = path.resolve(__dirname, 'template.html');
   const componentsPath = path.resolve(__dirname, 'components');

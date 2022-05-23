@@ -1,15 +1,12 @@
-const fs = require('fs/promises');
 const path = require('path');
+const fs = require('fs/promises');
 
 const SRC_FOLDER_NAME = 'files';
 const DEST_FOLDER_NAME = 'files-copy';
 
-const srcFolderPath = path.resolve(__dirname, SRC_FOLDER_NAME);
-const destFolderPath = path.resolve(__dirname, DEST_FOLDER_NAME);
-
-const copyChildNodes = async (node, parents = []) => {
-  const srcPath = path.resolve(srcFolderPath, ...parents, node.name);
-  const destPath = path.resolve(destFolderPath, ...parents, node.name);
+const copyChildNodes = async (node, parents, { src, dest }) => {
+  const srcPath = path.resolve(src, ...parents, node.name);
+  const destPath = path.resolve(dest, ...parents, node.name);
 
   if (node.isFile()) {
     fs.copyFile(srcPath, destPath);
@@ -20,23 +17,29 @@ const copyChildNodes = async (node, parents = []) => {
 
   const childNodes = await fs.readdir(srcPath, { withFileTypes: true });
 
-  for (const childNode of childNodes) {
-    await copyChildNodes(childNode, [...parents, node.name]);
-  }
+  Promise.all(
+    childNodes.map((childNode) => copyChildNodes(childNode, [...parents, node.name], { src, dest }))
+  );
 };
 
-(async () => {
-  try {
-    await fs.rm(destFolderPath, { recursive: true }).catch(() => {});
+const copyDir = async (srcFolder, destFolder) => {
+  const srcFolderPath = path.resolve(__dirname, srcFolder);
+  const destFolderPath = path.resolve(__dirname, destFolder);
 
-    await fs.mkdir(destFolderPath, { recursive: true });
+  await fs.rm(destFolderPath, { recursive: true, force: true });
 
-    const childNodes = await fs.readdir(srcFolderPath, { withFileTypes: true });
+  await fs.mkdir(destFolderPath, { recursive: true });
 
-    for (const node of childNodes) {
-      await copyChildNodes(node, []);
-    }
-  } catch (e) {
-    console.log(e);
-  }
-})();
+  const childNodes = await fs.readdir(srcFolderPath, { withFileTypes: true });
+
+  Promise.all(
+    childNodes.map((node) =>
+      copyChildNodes(node, [], {
+        src: srcFolderPath,
+        dest: destFolderPath,
+      })
+    )
+  );
+};
+
+copyDir(SRC_FOLDER_NAME, DEST_FOLDER_NAME);

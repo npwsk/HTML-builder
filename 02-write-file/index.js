@@ -4,8 +4,6 @@ const path = require('path');
 
 const outFilePath = path.join(__dirname, 'output.txt');
 
-// await fs.writeFile(outFilePath);
-
 const writeStream = fs.createWriteStream(outFilePath);
 
 const rl = readline.createInterface(process.stdin, process.stdout);
@@ -21,7 +19,7 @@ rl.question('Enter any text: ', (data) => {
     handleExit();
     return;
   }
-  writeStream.write(data);
+  writeStream.write(data + '\n');
 });
 
 rl.on('line', (data) => {
@@ -29,7 +27,7 @@ rl.on('line', (data) => {
     handleExit();
     return;
   }
-  writeStream.write(data);
+  writeStream.write(data + '\n');
 });
 
 rl.on('SIGINT', handleExit);

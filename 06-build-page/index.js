@@ -65,7 +65,7 @@ const combineHtml = async (templatePath, componentsPath, destPath) => {
     components[name] = comp;
   }
 
-  const html = htmlTemplate.replace(/{{(.+)}}/g, (_match, p1) => components[p1]);
+  const html = htmlTemplate.replace(/{{(.+?)}}/g, (_match, p1) => components[p1]);
 
   await fsp.writeFile(destPath, html);
 };

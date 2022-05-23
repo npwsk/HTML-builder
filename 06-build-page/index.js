@@ -4,38 +4,42 @@ const path = require('path');
 
 const DEST_FOLDER_NAME = 'project-dist';
 
-const copyChildNodes = async (node, parents = [], { srcPath, destPath }) => {
-  const srcNodePath = path.resolve(srcPath, ...parents, node.name);
-  const destNodePath = path.resolve(destPath, ...parents, node.name);
+const copyChildNodes = async (node, parents, { src, dest }) => {
+  const srcPath = path.resolve(src, ...parents, node.name);
+  const destPath = path.resolve(dest, ...parents, node.name);
 
   if (node.isFile()) {
-    fsp.copyFile(srcNodePath, destNodePath);
+    fsp.copyFile(srcPath, destPath);
     return;
   }
 
-  await fsp.mkdir(destNodePath, { recursive: true });
+  await fsp.mkdir(destPath, { recursive: true });
 
-  const childNodes = await fsp.readdir(srcNodePath, { withFileTypes: true });
+  const childNodes = await fsp.readdir(srcPath, { withFileTypes: true });
 
-  for (const childNode of childNodes) {
-    await copyChildNodes(childNode, [...parents, node.name], { srcPath, destPath });
-  }
+  Promise.all(
+    childNodes.map((childNode) => copyChildNodes(childNode, [...parents, node.name], { src, dest }))
+  );
 };
 
-const copyDir = async (srcPath, destPath) => {
-  try {
-    await fsp.rm(destPath, { recursive: true }).catch(() => {});
+const copyDir = async (srcFolder, destFolder) => {
+  const srcFolderPath = path.resolve(__dirname, srcFolder);
+  const destFolderPath = path.resolve(__dirname, destFolder);
 
-    await fsp.mkdir(destPath, { recursive: true });
+  await fsp.rm(destFolderPath, { recursive: true, force: true });
 
-    const childNodes = await fsp.readdir(srcPath, { withFileTypes: true });
+  await fsp.mkdir(destFolderPath, { recursive: true });
 
-    for (const node of childNodes) {
-      await copyChildNodes(node, [], { srcPath, destPath });
-    }
-  } catch (e) {
-    console.log(e);
-  }
+  const childNodes = await fsp.readdir(srcFolderPath, { withFileTypes: true });
+
+  Promise.all(
+    childNodes.map((node) =>
+      copyChildNodes(node, [], {
+        src: srcFolderPath,
+        dest: destFolderPath,
+      })
+    )
+  );
 };
 
 const combineHtml = async (templatePath, componentsPath, destPath) => {
@@ -44,6 +48,7 @@ const combineHtml = async (templatePath, componentsPath, destPath) => {
   const componentNodes = await fsp.readdir(componentsPath, {
     withFileTypes: true,
   });
+
   const components = {};
 
   for (const node of componentNodes) {
@@ -65,13 +70,22 @@ const combineHtml = async (templatePath, componentsPath, destPath) => {
   await fsp.writeFile(destPath, html);
 };
 
-const mergeCss = async (srcPath, destPath) => {
-  const writeStream = fs.createWriteStream(destPath);
-  const childNodes = await fsp.readdir(srcPath, { withFileTypes: true });
+const mergeCss = async (srcFolder, dest) => {
+  let childNodes = await fsp.readdir(srcFolder, { withFileTypes: true });
+
+  const checkIfFooter = (node) => node.name.toLocaleLowerCase() === 'footer.css';
+  const footer = childNodes.find(checkIfFooter);
+  if (footer) {
+    childNodes = [...childNodes.filter((node) => !checkIfFooter(node)), footer];
+  }
+
+  const writeStream = fs.createWriteStream(dest);
 
   for (const childNode of childNodes) {
-    if (childNode.isFile() && path.extname(childNode.name) === '.css') {
-      const srcFilePath = path.resolve(srcPath, childNode.name);
+    const isCss = path.extname(childNode.name).toLocaleLowerCase() === '.css';
+
+    if (childNode.isFile() && isCss) {
+      const srcFilePath = path.resolve(srcFolder, childNode.name);
       const readStream = fs.createReadStream(srcFilePath);
 
       readStream.pipe(writeStream);
